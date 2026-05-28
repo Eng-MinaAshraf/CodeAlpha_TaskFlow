@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase, Task, TaskComment, Column, Project, Profile } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Editor } from './ui/Editor';
 import { Button } from './ui/Button';
 import {
   X, Flag, Calendar, AlignLeft, MessageSquare,
-  Trash2, Send, ChevronDown, Check, User, Activity, Clock
+  Trash2, Check, User, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,7 +45,6 @@ export default function TaskModal({ task, project, columns, onClose, onUpdate, o
   const [activity, setActivity] = useState<any[]>([]);
   
   const [saving, setSaving] = useState(false);
-  const [loadingComments, setLoadingComments] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments');
   
@@ -67,16 +66,14 @@ export default function TaskModal({ task, project, columns, onClose, onUpdate, o
   }
 
   async function fetchComments() {
-    setLoadingComments(true);
     const { data: commentsData } = await supabase.from('task_comments').select('*').eq('task_id', task.id).order('created_at');
-    if (!commentsData?.length) { setComments([]); setLoadingComments(false); return; }
+    if (!commentsData?.length) { setComments([]); return; }
     
     const userIds = [...new Set(commentsData.map(c => c.user_id))];
     const { data: profilesData } = await supabase.from('profiles').select('*').in('id', userIds);
     const profileMap = new Map((profilesData ?? []).map(p => [p.id, p]));
     
     setComments(commentsData.map(c => ({ ...c, profiles: profileMap.get(c.user_id) as Profile })));
-    setLoadingComments(false);
   }
 
   async function fetchMembers() {
@@ -296,7 +293,7 @@ export default function TaskModal({ task, project, columns, onClose, onUpdate, o
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                onBlur={saveTask}
+                onBlur={() => saveTask()}
                 className="w-full bg-transparent text-2xl font-bold text-white placeholder-slate-600 focus:outline-none resize-none transition-colors border-b border-transparent focus:border-indigo-500/50 pb-1"
                 placeholder="Task title"
               />
@@ -339,7 +336,7 @@ export default function TaskModal({ task, project, columns, onClose, onUpdate, o
                     {showPriority && (
                       <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute top-full left-0 mt-1 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden py-1">
                         {Object.entries(PRIORITY_CONFIG).map(([val, conf]) => (
-                          <button key={val} onClick={() => { setPriority(val); setShowPriority(false); saveTask({ priority: val }); }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-700 flex justify-between items-center text-slate-300">
+                          <button key={val} onClick={() => { setPriority(val as Task['priority']); setShowPriority(false); saveTask({ priority: val as Task['priority'] }); }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-700 flex justify-between items-center text-slate-300">
                             <span className="flex items-center gap-2"><Flag size={12} className={conf.color} /> {conf.label}</span>
                             {priority === val && <Check size={14} className="text-indigo-400" />}
                           </button>
@@ -384,7 +381,7 @@ export default function TaskModal({ task, project, columns, onClose, onUpdate, o
                 <label className="text-[11px] font-semibold uppercase text-slate-500 mb-1.5 block">Due Date</label>
                 <div className="flex items-center gap-2 w-full text-left text-sm text-slate-300 hover:bg-slate-800 p-1.5 -ml-1.5 rounded-md transition-colors">
                   <Calendar size={14} className="text-slate-500" />
-                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} onBlur={saveTask} className="bg-transparent focus:outline-none w-full" />
+                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} onBlur={() => saveTask()} className="bg-transparent focus:outline-none w-full" />
                 </div>
               </div>
 
@@ -405,7 +402,7 @@ export default function TaskModal({ task, project, columns, onClose, onUpdate, o
                 <input
                   value={newTag}
                   onChange={e => setNewTag(e.target.value)}
-                  onKeyDown={e => { handleAddTag(e); if (e.key === 'Enter') setTimeout(saveTask, 100); }}
+                  onKeyDown={e => { handleAddTag(e); if (e.key === 'Enter') setTimeout(() => saveTask(), 100); }}
                   placeholder="Add label..."
                   className="bg-transparent border border-dashed border-slate-700 text-xs text-slate-300 px-2 py-1 rounded-md focus:outline-none focus:border-indigo-500 w-24 placeholder-slate-600"
                 />
@@ -420,7 +417,7 @@ export default function TaskModal({ task, project, columns, onClose, onUpdate, o
               <Editor content={description} onChange={setDescription} mentionUsers={members} />
               {description !== task.description && (
                 <div className="flex justify-end mt-2">
-                  <Button size="sm" onClick={saveTask} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+                  <Button size="sm" onClick={() => saveTask()} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
                 </div>
               )}
             </div>
