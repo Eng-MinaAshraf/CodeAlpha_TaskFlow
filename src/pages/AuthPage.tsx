@@ -20,7 +20,7 @@ export default function AuthPage() {
       const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
       if (signUpError) { setError(signUpError.message); setLoading(false); return; }
       if (data.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
+        const { error: profileError } = await supabase.from('profiles').upsert({
           id: data.user.id,
           username: username.trim() || email.split('@')[0],
           // ✅ Explicit secure defaults — new users are always basic users
